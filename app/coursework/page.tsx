@@ -94,6 +94,7 @@ interface AssessmentBrief {
   instructions: string;
   tasks: string;
   submissionFormat: string;
+  evidenceToSubmit?: string;
   maxPoints: number;
   allowedAttempts: number;
   attachmentName?: string;
@@ -133,6 +134,7 @@ const DEFAULT_BRIEFS: Record<string, AssessmentBrief> = {
     instructions: 'Complete all MCQ concept verification and upload your handwritten calculation scans as a single PDF.',
     tasks: 'Part A: 20 points MCQs.\nPart B: 80 points written working scans uploads.',
     submissionFormat: 'PDF',
+    evidenceToSubmit: 'Handwritten calculation scans PDF, Student verification form',
     maxPoints: 100,
     allowedAttempts: 1,
     attachmentName: 'midterm_exam_outline_syllabus.pdf',
@@ -144,6 +146,7 @@ const DEFAULT_BRIEFS: Record<string, AssessmentBrief> = {
     instructions: 'Build and deploy a CourseArchitect coursework outcomes and quality manager application syncing with Google Drive.',
     tasks: 'Task 1: Next.js scaffold and portal layouts.\nTask 2: Google Sheets API database sync integration.\nTask 3: Automatic Drive folder provisioning.\nTask 4: Quality Auditor moderation pack draws.',
     submissionFormat: 'ZIP',
+    evidenceToSubmit: 'ZIP archive of code, Presentation Slides PDF, System Architecture Blueprint',
     maxPoints: 100,
     allowedAttempts: 3,
     attachmentName: 'final_project_specifications.docx',
@@ -155,6 +158,7 @@ const DEFAULT_BRIEFS: Record<string, AssessmentBrief> = {
     instructions: 'Complete weekly MCQ concepts check quizzes.',
     tasks: 'Task 1: Complete online self-graded MCQ form.\nTask 2: Verify submit outcomes.',
     submissionFormat: 'Google Form MCQ Submits',
+    evidenceToSubmit: 'Google Form submit confirmation screenshot',
     maxPoints: 100,
     allowedAttempts: 2,
     attachmentName: '',
@@ -3043,6 +3047,7 @@ ESD Assessment: Assessment brief tasks students with analyzing server footprint.
                 instructions: '',
                 tasks: '',
                 submissionFormat: '',
+                evidenceToSubmit: '',
                 maxPoints: 100,
                 allowedAttempts: 1
               };
@@ -3074,6 +3079,7 @@ ${closListText}
 - Scenario / Context of Assessment Brief: ${brief.instructions || 'No scenario described yet.'}
 - Specific Tasks: ${brief.tasks || 'No specific tasks described yet.'}
 - Submission Format / Deliverables: ${brief.submissionFormat || 'E.g. Compiled PDF portfolio'}
+- Required Evidence / Item(s) to Submit: ${brief.evidenceToSubmit || 'None specified.'}
 
 [REQUIRED OUTPUT FORMAT]
 Please generate:
@@ -3248,8 +3254,8 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                             </div>
                           </div>
 
-                          {/* Row 2: Format & Attempts */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Row 2: Format, Attempts & Evidence */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="flex flex-col gap-1.5">
                               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Submission Formats Brief</label>
                               <input
@@ -3267,6 +3273,16 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                                 value={brief.allowedAttempts}
                                 onChange={(e) => updateAssessmentBrief(activeRubricCompId, 'allowedAttempts', parseInt(e.target.value) || 1)}
                                 className="bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-0"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Evidence / Items to Submit</label>
+                              <input
+                                type="text"
+                                value={brief.evidenceToSubmit || ''}
+                                placeholder="E.g., source_code.zip, report.pdf"
+                                onChange={(e) => updateAssessmentBrief(activeRubricCompId, 'evidenceToSubmit', e.target.value)}
+                                className="bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-0 placeholder:text-slate-700"
                               />
                             </div>
                           </div>
@@ -4844,6 +4860,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                 instructions: '',
                 tasks: '',
                 submissionFormat: '',
+                evidenceToSubmit: '',
                 maxPoints: 100,
                 allowedAttempts: 1
               };
@@ -4877,6 +4894,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                     <div><strong>Max Marks:</strong> {brief.maxPoints || 100} Marks</div>
                     <div><strong>Submission Format:</strong> {brief.submissionFormat || 'Not Specified'}</div>
                     <div><strong>Allowed Attempts:</strong> {brief.allowedAttempts || 1}</div>
+                    <div className="col-span-3 mt-1 pt-1 border-t border-slate-200/60"><strong>Evidence / Item(s) to Submit:</strong> {brief.evidenceToSubmit || 'None'}</div>
                   </div>
 
                   <div className="text-[11px] mt-2">
