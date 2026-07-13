@@ -367,6 +367,9 @@ export default function CourseworkPage() {
   const [bulkPasteText, setBulkPasteText] = useState<string>('');
   const [isDocViewportVisible, setIsDocViewportVisible] = useState<boolean>(true);
   const [isPromptCanvasCollapsed, setIsPromptCanvasCollapsed] = useState<boolean>(false);
+  const [isPreSettingImportOpen, setIsPreSettingImportOpen] = useState<boolean>(false);
+  const [preSettingImportText, setPreSettingImportText] = useState<string>('');
+  const [preSettingImportStatus, setPreSettingImportStatus] = useState<{ success: boolean; message: string } | null>(null);
 
 
   // Common Action Feedback
@@ -746,6 +749,432 @@ export default function CourseworkPage() {
       `[${new Date().toLocaleTimeString()}] ${message}`,
       ...prev.slice(0, 14)
     ]);
+  };
+
+  const handleImportPreSetting = (text: string) => {
+    if (!text || !text.trim()) {
+      setPreSettingImportStatus({ success: false, message: "Pasted text is empty." });
+      return;
+    }
+    
+    // 1. Try JSON parsing
+    try {
+      if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+        const parsed = JSON.parse(text);
+        if (parsed.courseCode) setCourseCode(parsed.courseCode);
+        if (parsed.courseName) setCourseName(parsed.courseName);
+        if (parsed.courseCoordinator) setCourseCoordinator(parsed.courseCoordinator);
+        if (parsed.clusterLeader) setClusterLeader(parsed.clusterLeader);
+        if (parsed.components && Array.isArray(parsed.components)) setComponents(parsed.components);
+        if (parsed.cloList && Array.isArray(parsed.cloList)) setCloList(parsed.cloList);
+        if (parsed.ploList && Array.isArray(parsed.ploList)) setPloList(parsed.ploList);
+        if (parsed.cloToPloMapping) setCloToPloMapping(parsed.cloToPloMapping);
+        if (parsed.cloPloMapping) setCloPloMapping(parsed.cloPloMapping);
+        if (parsed.hasCourseIntegration !== undefined) setHasCourseIntegration(parsed.hasCourseIntegration);
+        if (parsed.integratedCourseNames) setIntegratedCourseNames(parsed.integratedCourseNames);
+        if (parsed.courseIntegrationDetails) setCourseIntegrationDetails(parsed.courseIntegrationDetails);
+        if (parsed.hasVbeIntegration !== undefined) setHasVbeIntegration(parsed.hasVbeIntegration);
+        if (parsed.vbeTnlDetails) setVbeTnlDetails(parsed.vbeTnlDetails);
+        if (parsed.vbeAssessmentDetails) setVbeAssessmentDetails(parsed.vbeAssessmentDetails);
+        if (parsed.hasEsdIntegration !== undefined) setHasEsdIntegration(parsed.hasEsdIntegration);
+        if (parsed.esdTnlDetails) setEsdTnlDetails(parsed.esdTnlDetails);
+        if (parsed.esdAssessmentDetails) setEsdAssessmentDetails(parsed.esdAssessmentDetails);
+        
+        addLog("SUCCESS: Imported course blueprint configurations from JSON.");
+        setPreSettingImportStatus({ success: true, message: "Successfully imported from JSON configuration!" });
+        return;
+      }
+    } catch (e: any) {
+      // If it started like JSON but failed, flag it, but try line-by-line just in case
+    }
+
+    // 2. Line-by-line parsing for CSV, Markdown, text key-value format
+    try {
+      const lines = text.split('\n');
+      let currentSection = '';
+      
+      let tempCourseCode = '';
+      let tempCourseName = '';
+      let tempCoordinator = '';
+      let tempClusterLeader = '';
+
+      let tempComponents: AssessmentComponent[] = [];
+      let tempCloList: Outcome[] = [];
+      let tempPloList: Outcome[] = [];
+      let tempCloToPlo: Record<string, boolean> = {};
+      let tempCloPlo: Record<string, number> = {};
+
+      let tempHasCourseInt = false;
+      let tempCourseIntNames = '';
+      let tempCourseIntDetails = '';
+      let tempHasVbeInt = false;
+      let tempVbeTnl = '';
+      let tempVbeAssess = '';
+      let tempHasEsdInt = false;
+      let tempEsdTnl = '';
+      let tempEsdAssess = '';
+
+      for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i].trim();
+        if (!rawLine) continue;
+
+        // Skip markdown table formatting lines (e.g. |---|---|)
+        if (rawLine.startsWith('|') && (rawLine.includes('---') || rawLine.includes(':::'))) {
+          continue;
+        }
+
+        const lowerLine = rawLine.toLowerCase();
+        
+        // Section detection
+        if (lowerLine.includes('components') && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'components';
+          continue;
+        }
+        if ((lowerLine.includes('course learning outcomes') || lowerLine.includes('clos')) && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'clos';
+          continue;
+        }
+        if ((lowerLine.includes('program learning outcomes') || lowerLine.includes('plos')) && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'plos';
+          continue;
+        }
+        if (lowerLine.includes('clo to plo mapping') && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'cloplomap';
+          continue;
+        }
+        if ((lowerLine.includes('component to clo weighting') || lowerLine.includes('component to clo mapping') || lowerLine.includes('component to clo weight')) && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'compclomap';
+          continue;
+        }
+        if (lowerLine.includes('integrations') && (lowerLine.includes('---') || lowerLine.startsWith('#') || rawLine.endsWith(':'))) {
+          currentSection = 'integrations';
+          continue;
+        }
+
+        // Parse key-values in main section
+        if (currentSection === '') {
+          // Check for line of type "Key: Value" or "Key,Value"
+          const colonIndex = rawLine.indexOf(':');
+          const commaIndex = rawLine.indexOf(',');
+          const splitChar = colonIndex !== -1 ? ':' : (commaIndex !== -1 ? ',' : '');
+          
+          if (splitChar) {
+            const splitIdx = splitChar === ':' ? colonIndex : commaIndex;
+            const key = rawLine.substring(0, splitIdx).trim().toLowerCase();
+            const val = rawLine.substring(splitIdx + 1).trim();
+            if (!val) continue;
+
+            if (key === 'course code' || key === 'code' || key === 'coursecode') {
+              tempCourseCode = val;
+            } else if (key === 'course name' || key === 'name' || key === 'coursename') {
+              tempCourseName = val;
+            } else if (key === 'course coordinator' || key === 'coordinator') {
+              tempCoordinator = val;
+            } else if (key === 'cluster leader' || key === 'leader' || key === 'clusterleader') {
+              tempClusterLeader = val;
+            }
+          }
+          continue;
+        }
+
+        if (currentSection === 'components') {
+          // Format: "Component Name: 30%" or "Component Name,30%" or "Component Name | 30%"
+          // Remove table wrappers if copy-pasted as markdown table cell | Midterm | 30% |
+          let cleaned = rawLine;
+          if (cleaned.startsWith('|') && cleaned.endsWith('|')) {
+            cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+          }
+
+          let name = '';
+          let weight = 0;
+          
+          if (cleaned.includes('|')) {
+            const parts = cleaned.split('|');
+            name = parts[0].trim();
+            weight = parseInt(parts[1].replace(/%/g, '').trim()) || 0;
+          } else if (cleaned.includes(':')) {
+            const parts = cleaned.split(':');
+            name = parts[0].trim();
+            weight = parseInt(parts[1].replace(/%/g, '').trim()) || 0;
+          } else if (cleaned.includes(',')) {
+            const parts = cleaned.split(',');
+            name = parts[0].trim();
+            weight = parseInt(parts[1].replace(/%/g, '').trim()) || 0;
+          } else {
+            // Check if there is a number at the end
+            const words = cleaned.split(/\s+/);
+            const lastWord = words[words.length - 1];
+            const possibleWeight = parseInt(lastWord.replace(/%/g, ''));
+            if (!isNaN(possibleWeight)) {
+              name = words.slice(0, -1).join(' ').trim();
+              weight = possibleWeight;
+            }
+          }
+
+          if (name && name.toLowerCase() !== 'component' && weight > 0) {
+            const id = (tempComponents.length + 1).toString();
+            tempComponents.push({ id, name, weight });
+          }
+          continue;
+        }
+
+        if (currentSection === 'clos') {
+          // Format: "CLO-1 (Cognitive, C4): Analyze..." or "| CLO-1 | Cognitive | C4 | Analyze..."
+          let cleaned = rawLine;
+          if (cleaned.startsWith('|') && cleaned.endsWith('|')) {
+            cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+          }
+
+          let code = '';
+          let category = 'Cognitive';
+          let level = 'C1';
+          let desc = '';
+
+          if (cleaned.includes('|')) {
+            const parts = cleaned.split('|');
+            code = parts[0].trim();
+            if (parts[1]) category = parts[1].trim();
+            if (parts[2]) level = parts[2].trim();
+            if (parts[3]) desc = parts.slice(3).join('|').trim();
+          } else {
+            const colonIdx = cleaned.indexOf(':');
+            if (colonIdx > 0) {
+              const header = cleaned.substring(0, colonIdx).trim();
+              desc = cleaned.substring(colonIdx + 1).trim();
+
+              const parenStart = header.indexOf('(');
+              const parenEnd = header.indexOf(')');
+              if (parenStart > 0 && parenEnd > parenStart) {
+                code = header.substring(0, parenStart).trim();
+                const inner = header.substring(parenStart + 1, parenEnd);
+                const innerParts = inner.split(',');
+                if (innerParts[0]) category = innerParts[0].trim();
+                if (innerParts[1]) level = innerParts[1].trim();
+              } else {
+                code = header;
+              }
+            } else if (cleaned.includes(',')) {
+              const parts = cleaned.split(',');
+              code = parts[0].trim();
+              if (parts[1]) category = parts[1].trim();
+              if (parts[2]) level = parts[2].trim();
+              if (parts[3]) desc = parts.slice(3).join(',').trim();
+            }
+          }
+
+          if (code && desc && code.toLowerCase() !== 'clo' && code.toLowerCase() !== 'code') {
+            // Standardize Category to Cognitive/Psychomotor/Affective
+            let stdCat = 'Cognitive';
+            const catLower = category.toLowerCase();
+            if (catLower.startsWith('psy') || catLower === 'p') stdCat = 'Psychomotor';
+            else if (catLower.startsWith('aff') || catLower === 'a') stdCat = 'Affective';
+
+            const cleanId = code.replace(/[^a-zA-Z0-9]/g, '');
+            tempCloList.push({ id: cleanId, code, category: stdCat, level: level.toUpperCase(), desc });
+          }
+          continue;
+        }
+
+        if (currentSection === 'plos') {
+          // Format: "PLO-1 (Theory): Apply..." or "| PLO-1 | Theory | Apply..."
+          let cleaned = rawLine;
+          if (cleaned.startsWith('|') && cleaned.endsWith('|')) {
+            cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+          }
+
+          let code = '';
+          let category = 'Theory';
+          let desc = '';
+
+          if (cleaned.includes('|')) {
+            const parts = cleaned.split('|');
+            code = parts[0].trim();
+            if (parts[1]) category = parts[1].trim();
+            if (parts[2]) desc = parts.slice(2).join('|').trim();
+          } else {
+            const colonIdx = cleaned.indexOf(':');
+            if (colonIdx > 0) {
+              const header = cleaned.substring(0, colonIdx).trim();
+              desc = cleaned.substring(colonIdx + 1).trim();
+
+              const parenStart = header.indexOf('(');
+              const parenEnd = header.indexOf(')');
+              if (parenStart > 0 && parenEnd > parenStart) {
+                code = header.substring(0, parenStart).trim();
+                category = header.substring(parenStart + 1, parenEnd).trim();
+              } else {
+                code = header;
+              }
+            } else if (cleaned.includes(',')) {
+              const parts = cleaned.split(',');
+              code = parts[0].trim();
+              if (parts[1]) category = parts[1].trim();
+              if (parts[2]) desc = parts.slice(2).join(',').trim();
+            }
+          }
+
+          if (code && desc && code.toLowerCase() !== 'plo' && code.toLowerCase() !== 'code') {
+            const cleanId = code.replace(/[^a-zA-Z0-9]/g, '');
+            tempPloList.push({ id: cleanId, code, category, desc });
+          }
+          continue;
+        }
+
+        if (currentSection === 'cloplomap') {
+          // Format: "CLO-1 -> PLO-1" or "CLO-1, PLO-1" or "| CLO-1 | PLO-1 |"
+          let cleaned = rawLine;
+          if (cleaned.startsWith('|') && cleaned.endsWith('|')) {
+            cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+          }
+
+          let cloCode = '';
+          let ploCode = '';
+          if (cleaned.includes('->')) {
+            const parts = cleaned.split('->');
+            cloCode = parts[0].trim();
+            ploCode = parts[1].trim();
+          } else if (cleaned.includes('|')) {
+            const parts = cleaned.split('|');
+            cloCode = parts[0].trim();
+            ploCode = parts[1].trim();
+          } else if (cleaned.includes(',')) {
+            const parts = cleaned.split(',');
+            cloCode = parts[0].trim();
+            ploCode = parts[1].trim();
+          }
+
+          if (cloCode && ploCode && cloCode.toLowerCase() !== 'clo' && ploCode.toLowerCase() !== 'plo') {
+            const cloId = cloCode.replace(/[^a-zA-Z0-9]/g, '');
+            const ploId = ploCode.replace(/[^a-zA-Z0-9]/g, '');
+            tempCloToPlo[`${cloId}_${ploId}`] = true;
+          }
+          continue;
+        }
+
+        if (currentSection === 'compclomap') {
+          // Format: "Midterm Exam: CLO-1 (80%), CLO-3 (20%)" or "| Midterm Exam | CLO-1 (80%) | CLO-3 (20%) |"
+          let cleaned = rawLine;
+          if (cleaned.startsWith('|') && cleaned.endsWith('|')) {
+            cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+          }
+
+          let compName = '';
+          let mappingsRaw = '';
+
+          if (cleaned.includes('|')) {
+            const parts = cleaned.split('|');
+            compName = parts[0].trim();
+            mappingsRaw = parts.slice(1).join(',').trim();
+          } else {
+            const colonIdx = cleaned.indexOf(':');
+            if (colonIdx > 0) {
+              compName = cleaned.substring(0, colonIdx).trim();
+              mappingsRaw = cleaned.substring(colonIdx + 1).trim();
+            }
+          }
+
+          if (compName && mappingsRaw) {
+            // Find component ID
+            let comp = tempComponents.find(c => c.name.toLowerCase() === compName.toLowerCase());
+            if (!comp) {
+              comp = components.find(c => c.name.toLowerCase() === compName.toLowerCase());
+            }
+
+            if (comp) {
+              const items = mappingsRaw.split(',');
+              items.forEach(item => {
+                const parenIdx = item.indexOf('(');
+                const parenEndIdx = item.indexOf(')');
+                if (parenIdx > 0 && parenEndIdx > parenIdx) {
+                  const cloCode = item.substring(0, parenIdx).trim();
+                  const weightVal = parseInt(item.substring(parenIdx + 1, parenEndIdx).replace(/%/g, '').trim()) || 0;
+                  
+                  const cloId = cloCode.replace(/[^a-zA-Z0-9]/g, '');
+                  tempCloPlo[`${comp?.id}_${cloId}`] = weightVal;
+                }
+              });
+            }
+          }
+          continue;
+        }
+
+        if (currentSection === 'integrations') {
+          const colonIdx = rawLine.indexOf(':');
+          if (colonIdx > 0) {
+            const key = rawLine.substring(0, colonIdx).trim().toLowerCase();
+            const val = rawLine.substring(colonIdx + 1).trim();
+            if (!val) continue;
+
+            if (key.includes('cross-course') && !key.includes('details')) {
+              tempHasCourseInt = true;
+              tempCourseIntNames = val;
+            } else if (key.includes('cross-course details') || key.includes('integration details')) {
+              tempCourseIntDetails = val;
+            } else if (key.includes('vbe t&l') || key.includes('vbe tnl') || key.includes('vbe teaching')) {
+              tempHasVbeInt = true;
+              tempVbeTnl = val;
+            } else if (key.includes('vbe assessment')) {
+              tempHasVbeInt = true;
+              tempVbeAssess = val;
+            } else if (key.includes('esd t&l') || key.includes('esd tnl') || key.includes('esd teaching')) {
+              tempHasEsdInt = true;
+              tempEsdTnl = val;
+            } else if (key.includes('esd assessment')) {
+              tempHasEsdInt = true;
+              tempEsdAssess = val;
+            }
+          }
+        }
+      }
+
+      // 3. Populate state
+      let updatedAny = false;
+      if (tempCourseCode) { setCourseCode(tempCourseCode); updatedAny = true; }
+      if (tempCourseName) { setCourseName(tempCourseName); updatedAny = true; }
+      if (tempCoordinator) { setCourseCoordinator(tempCoordinator); updatedAny = true; }
+      if (tempClusterLeader) { setClusterLeader(tempClusterLeader); updatedAny = true; }
+
+      if (tempComponents.length > 0) {
+        setComponents(tempComponents);
+        if (!tempComponents.some(c => c.id === activeRubricCompId)) {
+          setActiveRubricCompId(tempComponents[0].id);
+        }
+        updatedAny = true;
+      }
+      if (tempCloList.length > 0) { setCloList(tempCloList); updatedAny = true; }
+      if (tempPloList.length > 0) { setPloList(tempPloList); updatedAny = true; }
+      if (Object.keys(tempCloToPlo).length > 0) { setCloToPloMapping(tempCloToPlo); updatedAny = true; }
+      if (Object.keys(tempCloPlo).length > 0) { setCloPloMapping(tempCloPlo); updatedAny = true; }
+
+      if (tempHasCourseInt) {
+        setHasCourseIntegration(true);
+        setIntegratedCourseNames(tempCourseIntNames);
+        setCourseIntegrationDetails(tempCourseIntDetails);
+        updatedAny = true;
+      }
+      if (tempHasVbeInt) {
+        setHasVbeIntegration(true);
+        setVbeTnlDetails(tempVbeTnl);
+        setVbeAssessmentDetails(tempVbeAssess);
+        updatedAny = true;
+      }
+      if (tempHasEsdInt) {
+        setHasEsdIntegration(true);
+        setEsdTnlDetails(tempEsdTnl);
+        setEsdAssessmentDetails(tempEsdAssess);
+        updatedAny = true;
+      }
+
+      if (updatedAny) {
+        addLog("SUCCESS: Parsed and imported Stage 1 Blueprint settings from pasted text.");
+        setPreSettingImportStatus({ success: true, message: "Successfully imported Blueprint settings!" });
+      } else {
+        setPreSettingImportStatus({ success: false, message: "Could not identify any valid configurations. Check formatting." });
+      }
+    } catch (error: any) {
+      addLog(`ERROR: Failed to parse pasted blueprint: ${error.message}`);
+      setPreSettingImportStatus({ success: false, message: `Parse error: ${error.message}` });
+    }
   };
 
   // Total assessment weights validation
@@ -1806,7 +2235,214 @@ export default function CourseworkPage() {
             {/* STAGE 1: Pre Setting Assessment Workspace */}
             {activeStage === 'pre_setting' && (
               <div className="flex flex-col gap-6 animate-fadeIn">
-                
+
+                {/* BULK BLUEPRINT PASTE & IMPORT TOOL */}
+                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden relative">
+                  <div className="absolute right-4 top-4 text-indigo-500/10 opacity-30 select-none pointer-events-none">
+                    <Sparkles className="h-24 w-24" />
+                  </div>
+
+                  {/* Header Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPreSettingImportOpen(!isPreSettingImportOpen);
+                      setPreSettingImportStatus(null);
+                    }}
+                    className="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 cursor-pointer text-left hover:bg-slate-900/30 transition-colors"
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3 animate-pulse" />
+                        Smart Course Blueprint Importer
+                      </span>
+                      <h2 className="text-lg font-bold text-white mt-1">Paste Coursework Configuration</h2>
+                      <p className="text-slate-400 text-[10px] mt-0.5 leading-relaxed">
+                        Paste data in CSV, key-value text, markdown tables, or JSON to automatically configure this course's profile, CLOs, PLOs, and mappings.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                        isPreSettingImportOpen
+                          ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400'
+                          : 'border-slate-800 bg-slate-950 text-slate-500'
+                      }`}>
+                        {isPreSettingImportOpen ? 'Opened Importer' : 'Click to Import'}
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                        isPreSettingImportOpen ? 'rotate-180' : ''
+                      }`} />
+                    </div>
+                  </button>
+
+                  {/* Body Content */}
+                  {isPreSettingImportOpen && (
+                    <div className="px-6 pb-6 flex flex-col gap-5 border-t border-slate-900/60 pt-4">
+                      
+                      {/* Required Data Checklist Info grid */}
+                      <div className="bg-slate-950/60 border border-slate-900 rounded-xl p-4 flex flex-col gap-3">
+                        <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">Required / Supported Fields Checklist</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-[11px] text-slate-400">
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Course Profile:</strong>
+                              <p>Course Code, Course Name, Coordinator, Cluster Leader</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Assessment Components:</strong>
+                              <p>Titles and weights (e.g. Midterm Exam: 30%)</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Course Learning Outcomes (CLOs):</strong>
+                              <p>Codes, category, expected levels, descriptions</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Program Learning Outcomes (PLOs):</strong>
+                              <p>Codes, domain categories, descriptions</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Mappings:</strong>
+                              <p>CLO-to-PLO connections and Component-to-CLO weights</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 mt-1.5"></span>
+                            <div>
+                              <strong className="text-slate-300">Curriculum Integrations:</strong>
+                              <p>Cross-course, VBE, and ESD integration details</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Textarea Paste Box */}
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Paste raw data (Markdown, CSV, Text Key-Value, or JSON)</label>
+                        <textarea
+                          value={preSettingImportText}
+                          onChange={(e) => setPreSettingImportText(e.target.value)}
+                          rows={8}
+                          placeholder={`E.g.,
+Course Code: CS302
+Course Name: Advanced Software Engineering
+Course Coordinator: Dr. Rizal Husin
+Cluster Leader: Prof. Ahmad
+
+--- Components ---
+Midterm Exam: 30%
+Final Project: 40%
+Quizzes & Assignments: 30%
+
+--- Course Learning Outcomes (CLOs) ---
+CLO-1 (Cognitive, C4): Analyze software requirements and specify design architectures.
+CLO-2 (Psychomotor, P4): Implement modular codebases satisfying clean-code design patterns.
+
+--- Program Learning Outcomes (PLOs) ---
+PLO-1 (Theory): Apply engineering principles to solve complex problems.
+PLO-3 (Design): Design and model hardware/software components matching specifications.
+
+--- CLO to PLO Mapping ---
+CLO-1 -> PLO-1
+CLO-2 -> PLO-3
+
+--- Component to CLO Weighting ---
+Midterm Exam: CLO-1 (80%), CLO-3 (20%)
+Final Project: CLO-2 (100%)`}
+                          className="w-full bg-slate-950 border border-slate-850 rounded-lg p-3 text-[11px] font-mono text-slate-350 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-0 resize-y"
+                        />
+                      </div>
+
+                      {/* Actions & Result Indicators */}
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        {preSettingImportStatus && (
+                          <div className={`text-xs px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 ${
+                            preSettingImportStatus.success
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                          }`}>
+                            {preSettingImportStatus.success ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-rose-400" />
+                            )}
+                            <span>{preSettingImportStatus.message}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2.5 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreSettingImportText(`Course Code: CS302
+Course Name: Advanced Software Engineering
+Course Coordinator: Dr. Rizal Husin
+Cluster Leader: Prof. Ahmad
+
+--- Components ---
+Midterm Exam: 30%
+Final Project: 40%
+Quizzes & Assignments: 30%
+
+--- Course Learning Outcomes (CLOs) ---
+CLO-1 (Cognitive, C4): Analyze software requirements and specify design architectures.
+CLO-2 (Psychomotor, P4): Implement modular codebases satisfying clean-code design patterns.
+CLO-3 (Affective, A3): Collaborate in team environments and present system designs.
+
+--- Program Learning Outcomes (PLOs) ---
+PLO-1 (Theory): Apply engineering principles to solve complex problems.
+PLO-3 (Design): Design and model hardware/software components matching specifications.
+PLO-6 (Comm): Communicate technical solutions effectively to professional audiences.
+
+--- CLO to PLO Mapping ---
+CLO-1 -> PLO-1
+CLO-2 -> PLO-3
+CLO-3 -> PLO-6
+
+--- Component to CLO Weighting ---
+Midterm Exam: CLO-1 (80%), CLO-3 (20%)
+Final Project: CLO-2 (100%)
+Quizzes & Assignments: CLO-1 (50%), CLO-3 (50%)
+
+--- Integrations ---
+Cross-Course: CS304 Software Engineering, CS305 Database Systems
+Cross-Course Details: Joint capstone assessment. Students architect the relational schemas in CS302 and develop API connectors in CS304.
+VBE T&L: In lectures, discuss professional ethical codes and copyright rules.
+VBE Assessment: Rubric includes dedicated criteria for plagiarism checks.
+ESD T&L: Introduce green computing principles, server energy consumption trade-offs.
+ESD Assessment: Assessment brief tasks students with analyzing server footprint.`);
+                              setPreSettingImportStatus(null);
+                            }}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold px-2.5 py-1.5 rounded border border-slate-800 bg-slate-950 cursor-pointer transition-colors"
+                          >
+                            Load Template Example
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleImportPreSetting(preSettingImportText)}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-xl cursor-pointer transition-all shadow shadow-indigo-500/10 flex items-center gap-1.5"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>Parse & Load Blueprint</span>
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+
                 <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 flex flex-col gap-6">
                   <div>
                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Stage 1 - Pre Setting</span>

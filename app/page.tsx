@@ -77,7 +77,16 @@ export default function Home() {
   const [dupSemester, setDupSemester] = useState('Semester 1 - 2026/2027');
   const [dupClassSize, setDupClassSize] = useState(10);
 
-  // Load courses on mount
+  // Custom Semesters list state
+  const [semesters, setSemesters] = useState<string[]>([
+    'Semester 1 - 2026/2027',
+    'Semester 2 - 2026/2027',
+    'Summer Term - 2027'
+  ]);
+  const [isAddingSemester, setIsAddingSemester] = useState(false);
+  const [customSemesterName, setCustomSemesterName] = useState('');
+
+  // Load courses and semesters on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('course_architect_courses');
@@ -91,6 +100,20 @@ export default function Home() {
         localStorage.setItem('course_architect_courses', JSON.stringify(DEFAULT_COURSES));
         setCourses(DEFAULT_COURSES);
       }
+      
+      // Load custom semesters
+      const storedSemesters = localStorage.getItem('course_architect_semesters');
+      if (storedSemesters) {
+        try {
+          const parsed = JSON.parse(storedSemesters);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSemesters(parsed);
+            setNewSemester(parsed[0]);
+            setDupSemester(parsed[0]);
+          }
+        } catch (e) {}
+      }
+
       // Load lecturer profile
       const storedName = localStorage.getItem('lecturer_profile_name');
       const storedStaff = localStorage.getItem('lecturer_profile_staff_no');
@@ -100,6 +123,26 @@ export default function Home() {
       setIsLoading(false);
     }
   }, []);
+
+  const handleAddCustomSemester = (name: string, isFromDuplicate: boolean) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    
+    let updated = semesters;
+    if (!semesters.includes(trimmed)) {
+      updated = [...semesters, trimmed];
+      setSemesters(updated);
+      localStorage.setItem('course_architect_semesters', JSON.stringify(updated));
+    }
+    
+    if (isFromDuplicate) {
+      setDupSemester(trimmed);
+    } else {
+      setNewSemester(trimmed);
+    }
+    setCustomSemesterName('');
+    setIsAddingSemester(false);
+  };
 
   const handleAddCourse = (e: React.FormEvent) => {
     e.preventDefault();
@@ -533,16 +576,47 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Semester *</label>
-                <select
-                  value={newSemester}
-                  onChange={(e) => setNewSemester(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="Semester 1 - 2026/2027">Semester 1 - 2026/2027</option>
-                  <option value="Semester 2 - 2026/2027">Semester 2 - 2026/2027</option>
-                  <option value="Summer Term - 2027">Summer Term - 2027</option>
-                </select>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Semester *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingSemester(!isAddingSemester);
+                      setCustomSemesterName('');
+                    }}
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold bg-transparent border-0 cursor-pointer"
+                  >
+                    {isAddingSemester ? '✕ Cancel' : '+ Add Custom Semester'}
+                  </button>
+                </div>
+                {isAddingSemester ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customSemesterName}
+                      onChange={(e) => setCustomSemesterName(e.target.value)}
+                      placeholder="e.g. Semester 1 - 2027/2028"
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 placeholder:text-slate-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomSemester(customSemesterName, false)}
+                      className="bg-indigo-650 hover:bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={newSemester}
+                    onChange={(e) => setNewSemester(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    {semesters.map((sem) => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -619,16 +693,47 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Semester *</label>
-                <select
-                  value={dupSemester}
-                  onChange={(e) => setDupSemester(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="Semester 1 - 2026/2027">Semester 1 - 2026/2027</option>
-                  <option value="Semester 2 - 2026/2027">Semester 2 - 2026/2027</option>
-                  <option value="Summer Term - 2027">Summer Term - 2027</option>
-                </select>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Semester *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingSemester(!isAddingSemester);
+                      setCustomSemesterName('');
+                    }}
+                    className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold bg-transparent border-0 cursor-pointer"
+                  >
+                    {isAddingSemester ? '✕ Cancel' : '+ Add Custom Semester'}
+                  </button>
+                </div>
+                {isAddingSemester ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customSemesterName}
+                      onChange={(e) => setCustomSemesterName(e.target.value)}
+                      placeholder="e.g. Semester 1 - 2027/2028"
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 placeholder:text-slate-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomSemester(customSemesterName, true)}
+                      className="bg-indigo-650 hover:bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={dupSemester}
+                    onChange={(e) => setDupSemester(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    {semesters.map((sem) => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
