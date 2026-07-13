@@ -374,6 +374,9 @@ export default function CourseworkPage() {
   const [isPreSettingImportOpen, setIsPreSettingImportOpen] = useState<boolean>(false);
   const [preSettingImportText, setPreSettingImportText] = useState<string>('');
   const [preSettingImportStatus, setPreSettingImportStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [isRosterPasteOpen, setIsRosterPasteOpen] = useState<boolean>(false);
+  const [rosterPasteText, setRosterPasteText] = useState<string>('');
+  const [rosterPasteStatus, setRosterPasteStatus] = useState<{ success: boolean; message: string } | null>(null);
 
 
   // Common Action Feedback
@@ -753,6 +756,128 @@ export default function CourseworkPage() {
       `[${new Date().toLocaleTimeString()}] ${message}`,
       ...prev.slice(0, 14)
     ]);
+  };
+
+  const addStudent = () => {
+    const nextIdNum = students.length > 0 
+      ? (Math.max(...students.map(s => {
+          const num = parseInt(s.id.replace(/\D/g, ''));
+          return isNaN(num) ? 0 : num;
+        })) + 1)
+      : 101;
+    const newStudent: Student = {
+      id: `S${nextIdNum}`,
+      name: `New Student ${nextIdNum}`,
+      email: `student_${nextIdNum}@university.edu`,
+      status: 'Pending',
+      grades: {}
+    };
+    setStudents([...students, newStudent]);
+    addLog(`Added student ${newStudent.name} to roster.`);
+  };
+
+  const deleteStudent = (id: string) => {
+    if (students.length <= 1) {
+      alert("At least one student must remain in the class roster.");
+      return;
+    }
+    setStudents(prev => prev.filter(s => s.id !== id));
+    addLog(`Deleted student ${id} from roster.`);
+  };
+
+  const updateStudentField = (id: string, field: 'id' | 'name' | 'email', val: string) => {
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
+  };
+
+  const handleBulkImportRoster = (text: string) => {
+    if (!text || !text.trim()) {
+      setRosterPasteStatus({ success: false, message: "Pasted text is empty." });
+      return;
+    }
+
+    try {
+      const lines = text.split('\n');
+      const parsedStudents: Student[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i].trim();
+        if (!rawLine) continue;
+
+        // Skip headers
+        if (i === 0 && (rawLine.toLowerCase().includes('id') || rawLine.toLowerCase().includes('email') || rawLine.toLowerCase().includes('name') || rawLine.toLowerCase().includes('matric'))) {
+          continue;
+        }
+
+        // Try parsing by TAB, COMMA, or SEMICOLON
+        let parts: string[] = [];
+        if (rawLine.includes('\t')) {
+          parts = rawLine.split('\t');
+        } else if (rawLine.includes(',')) {
+          parts = rawLine.split(',');
+        } else if (rawLine.includes(';')) {
+          parts = rawLine.split(';');
+        } else {
+          parts = rawLine.split(/\s{2,}/); // split by multiple spaces
+        }
+
+        parts = parts.map(p => p.trim());
+
+        let id = '';
+        let name = '';
+        let email = '';
+
+        if (parts.length >= 3) {
+          const emailIdx = parts.findIndex(p => p.includes('@'));
+          if (emailIdx !== -1) {
+            email = parts[emailIdx];
+            const otherParts = parts.filter((_, idx) => idx !== emailIdx);
+            const idIdx = otherParts.findIndex(p => /\d/.test(p) || p.length <= 10);
+            if (idIdx !== -1) {
+              id = otherParts[idIdx];
+              name = otherParts.filter((_, idx) => idx !== idIdx).join(' ');
+            } else {
+              id = otherParts[0];
+              name = otherParts.slice(1).join(' ');
+            }
+          } else {
+            id = parts[0];
+            name = parts[1];
+            email = parts[2] || `${name.toLowerCase().replace(/\s+/g, '')}@university.edu`;
+          }
+        } else if (parts.length === 2) {
+          id = parts[0];
+          name = parts[1];
+          email = `${name.toLowerCase().replace(/\s+/g, '')}@university.edu`;
+        } else if (parts.length === 1) {
+          name = parts[0];
+          id = `S${101 + parsedStudents.length}`;
+          email = `${name.toLowerCase().replace(/\s+/g, '')}@university.edu`;
+        }
+
+        if (name) {
+          if (!id) id = `S${101 + parsedStudents.length}`;
+          parsedStudents.push({
+            id,
+            name,
+            email,
+            status: 'Pending',
+            grades: {}
+          });
+        }
+      }
+
+      if (parsedStudents.length > 0) {
+        setStudents(parsedStudents);
+        addLog(`SUCCESS: Bulk-imported ${parsedStudents.length} students into class roster.`);
+        setRosterPasteStatus({ success: true, message: `Successfully imported ${parsedStudents.length} students!` });
+        setRosterPasteText('');
+        setIsRosterPasteOpen(false);
+      } else {
+        setRosterPasteStatus({ success: false, message: "Could not identify any valid student records. Check structure." });
+      }
+    } catch (e: any) {
+      setRosterPasteStatus({ success: false, message: `Failed parsing roster: ${e.message}` });
+    }
   };
 
   const handleImportPreSetting = (text: string) => {
@@ -3032,6 +3157,163 @@ ESD Assessment: Assessment brief tasks students with analyzing server footprint.
                     <Info className="h-4.5 w-4.5 text-indigo-400 flex-shrink-0 mt-0.5" />
                     <p className="leading-relaxed font-light">
                       Modifying outcome mappings alters dynamic PLO calculations automatically. Indirect PLOs are resolved transitively: <strong>Component ➔ CLO ➔ PLO</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* CLASS ROSTER MANAGER & EDIT DESK */}
+                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 flex flex-col gap-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Stage 1 - Student Roster</span>
+                      <h2 className="text-xl font-bold text-white mt-1">Class Roster Workspace</h2>
+                      <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                        Manage enrolled students for this course portfolio. Edit details directly in the table or bulk-import from spreadsheets.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRosterPasteOpen(!isRosterPasteOpen);
+                          setRosterPasteStatus(null);
+                        }}
+                        className="py-2 px-3 border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-350 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                        <span>{isRosterPasteOpen ? 'Hide Bulk Paste' : 'Bulk Paste from Sheets'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addStudent}
+                        className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow shadow-indigo-500/10"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Student</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bulk Paste Importer Panel */}
+                  {isRosterPasteOpen && (
+                    <div className="bg-slate-950/60 border border-slate-900 rounded-xl p-4 flex flex-col gap-4 animate-fadeIn">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-300">Copy & Paste Student Data</h4>
+                        <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                          Copy rows directly from Google Sheets or Excel (ID, Name, Email) and paste them here. Headers will be skipped automatically.
+                        </p>
+                      </div>
+
+                      <textarea
+                        value={rosterPasteText}
+                        onChange={(e) => setRosterPasteText(e.target.value)}
+                        rows={6}
+                        placeholder="E.g.,&#10;S101&#9;Alice Tan&#9;alice@university.edu&#10;S102&#9;Bob Lim&#9;bob@university.edu"
+                        className="w-full bg-slate-950 border border-slate-850 rounded-lg p-3 text-[11px] font-mono text-slate-350 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-0 resize-y"
+                      />
+
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        {rosterPasteStatus && (
+                          <div className={`text-xs px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 ${
+                            rosterPasteStatus.success
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                          }`}>
+                            {rosterPasteStatus.success ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-rose-400" />
+                            )}
+                            <span>{rosterPasteStatus.message}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRosterPasteText(`S101\tAlice Tan\talice.tan@university.edu
+S102\tBenjamin Lim\tbenjamin.lim@university.edu
+S103\tCatherine Ng\tcatherine.ng@university.edu
+S104\tDaniel Yeoh\tdaniel.yeoh@university.edu`);
+                              setRosterPasteStatus(null);
+                            }}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold px-2 py-1 rounded border border-slate-800 bg-slate-950 cursor-pointer"
+                          >
+                            Load Roster Example
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkImportRoster(rosterPasteText)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl cursor-pointer"
+                          >
+                            Parse and Override Roster
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Student list editable table */}
+                  <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/20">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-slate-950">
+                        <tr className="border-b border-slate-900">
+                          <th className="py-2.5 px-4 text-slate-500 font-bold w-32">Student ID</th>
+                          <th className="py-2.5 px-4 text-slate-500 font-bold">Full Name</th>
+                          <th className="py-2.5 px-4 text-slate-500 font-bold">Email Address</th>
+                          <th className="py-2.5 px-4 text-slate-500 font-bold text-center w-20">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {students.map((student) => (
+                          <tr key={student.id} className="border-b border-slate-900/60 hover:bg-slate-900/10">
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                value={student.id}
+                                onChange={(e) => updateStudentField(student.id, 'id', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-900 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-mono"
+                              />
+                            </td>
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                value={student.name}
+                                onChange={(e) => updateStudentField(student.id, 'name', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-900 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-semibold"
+                              />
+                            </td>
+                            <td className="py-2 px-3">
+                              <input
+                                type="email"
+                                value={student.email}
+                                onChange={(e) => updateStudentField(student.id, 'email', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-900 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs"
+                              />
+                            </td>
+                            <td className="py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => deleteStudent(student.id)}
+                                disabled={students.length <= 1}
+                                className="text-slate-600 hover:text-rose-400 p-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Remove Student"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="bg-slate-950/40 border border-slate-900/60 rounded-xl p-3.5 flex gap-2.5 text-[11px] text-slate-500 items-start">
+                    <Info className="h-4 w-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      Changes here directly update the class roster. Launching Stage 3 (Distribution) will automatically provision Drive folders matching these matric IDs.
                     </p>
                   </div>
                 </div>
