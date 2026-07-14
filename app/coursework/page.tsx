@@ -1847,26 +1847,33 @@ export default function CourseworkPage() {
     const sorted = [...graded].sort((a, b) => (a.finalMark || 0) - (b.finalMark || 0));
 
     if (samplingRule === 'tmb') {
-      // Top, Mid, Bottom sampling
-      if (sorted.length === 1) return [sorted[0]];
-      if (sorted.length === 2) return [sorted[0], sorted[1]];
+      // Top, Mid, Bottom sampling (3 Top, 3 Mid, 3 Bottom = 9 candidates)
+      if (sorted.length <= 9) return sorted;
       
-      const bottom = sorted[0];
-      const top = sorted[sorted.length - 1];
-      const midIndex = Math.floor(sorted.length / 2);
-      const mid = sorted[midIndex];
+      const top3 = sorted.slice(-3).reverse();
+      const bottom3 = sorted.slice(0, 3);
+      
+      // Extract 3 from the middle tier (excluding the top 3 and bottom 3 to avoid duplicates)
+      const remaining = sorted.slice(3, -3);
+      let mid3: Student[] = [];
+      if (remaining.length >= 3) {
+        const midIdx = Math.floor(remaining.length / 2);
+        mid3 = remaining.slice(midIdx - 1, midIdx + 2);
+      } else {
+        mid3 = remaining;
+      }
 
-      return [top, mid, bottom];
+      return [...top3, ...mid3, ...bottom3];
     } else if (samplingRule === 'random') {
-      // Return 3 random samples or 30%
-      const count = Math.min(3, sorted.length);
+      // Return 9 random samples
+      const count = Math.min(9, sorted.length);
       const shuffled = [...sorted].sort(() => 0.5 - Math.random());
       return shuffled.slice(0, count);
     } else {
-      // Clustered samples (average scorers - cluster around middle)
+      // Clustered samples (average scorers - cluster of 9 around middle)
       const midIdx = Math.floor(sorted.length / 2);
-      const start = Math.max(0, midIdx - 1);
-      const end = Math.min(sorted.length, start + 3);
+      const start = Math.max(0, midIdx - 4);
+      const end = Math.min(sorted.length, start + 9);
       return sorted.slice(start, end);
     }
   };
@@ -4865,9 +4872,9 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
 
                     <div className="flex flex-col gap-1.5 md:col-span-2 text-xs text-slate-400 leading-relaxed justify-center">
                       <p>
-                        {samplingRule === 'tmb' && 'Top, Mid, Bottom extracts 3 students: the absolute highest scorer, the absolute lowest scorer, and the scorer closest to the class median. Ideal for comprehensive audits.'}
-                        {samplingRule === 'random' && 'Extracts a randomized set of student submissions, ensuring zero selector bias.'}
-                        {samplingRule === 'clustered' && 'Extracts 3 students clustered around the average class scoring zone to inspect typical learning outcomes.'}
+                        {samplingRule === 'tmb' && 'Top, Mid, Bottom extracts 9 students: 3 highest scorers, 3 median scorers, and 3 lowest scorers. Ideal for comprehensive audits.'}
+                        {samplingRule === 'random' && 'Extracts a randomized set of 9 student submissions, ensuring zero selector bias.'}
+                        {samplingRule === 'clustered' && 'Extracts 9 students clustered around the average class scoring zone to inspect typical learning outcomes.'}
                       </p>
                     </div>
                   </div>
@@ -4887,10 +4894,10 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                     ) : (
                       <div className="flex flex-col gap-3">
                         {sampledList.map((stud, idx) => {
-                          const tag = idx === 0 ? 'HIGH' : idx === 1 ? 'MID' : 'LOW';
-                          const tagColor = idx === 0 
+                          const tag = idx < 3 ? 'HIGH' : idx < 6 ? 'MID' : 'LOW';
+                          const tagColor = idx < 3 
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' 
-                            : idx === 1 
+                            : idx < 6 
                               ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/15' 
                               : 'bg-rose-500/10 text-rose-400 border-rose-500/15';
 
