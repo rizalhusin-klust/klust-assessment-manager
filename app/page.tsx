@@ -411,7 +411,7 @@ export default function Home() {
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               isEditingProfile
-                ? 'bg-emerald-650 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/15'
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/15'
                 : 'bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-350 hover:text-white'
             }`}
           >
@@ -456,7 +456,7 @@ export default function Home() {
                       <span className="text-[10px] text-slate-800">|</span>
                       <button
                         onClick={(e) => handleDeleteCourse(course.id, e)}
-                        className="text-[10px] text-slate-600 hover:text-rose-450 font-bold bg-transparent border-0 cursor-pointer transition-colors"
+                        className="text-[10px] text-slate-400 hover:text-rose-500 font-bold bg-transparent border-0 cursor-pointer transition-colors"
                       >
                         Delete Profile
                       </button>
