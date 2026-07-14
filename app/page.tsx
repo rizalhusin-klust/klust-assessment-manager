@@ -32,26 +32,7 @@ interface Course {
   lastUpdate: string;
 }
 
-const DEFAULT_COURSES: Course[] = [
-  {
-    id: 'CS302_SEM1_2026',
-    code: 'CS302',
-    name: 'Advanced Software Engineering',
-    semester: 'Semester 1 - 2026/2027',
-    coordinator: 'Dr. Rizal Husin',
-    studentsCount: 10,
-    lastUpdate: '2026-07-12',
-  },
-  {
-    id: 'CS101_SEM2_2026',
-    code: 'CS101',
-    name: 'Introduction to Programming',
-    semester: 'Semester 2 - 2026/2027',
-    coordinator: 'Dr. Rizal Husin',
-    studentsCount: 10,
-    lastUpdate: '2026-07-12',
-  }
-];
+const DEFAULT_COURSES: Course[] = [];
 
 export default function Home() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -92,7 +73,17 @@ export default function Home() {
       const stored = localStorage.getItem('course_architect_courses');
       if (stored) {
         try {
-          setCourses(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          // Clean up legacy defaults CS302 and CS101
+          const filtered = parsed.filter((c: any) => c.id !== 'CS302_SEM1_2026' && c.id !== 'CS101_SEM2_2026');
+          if (parsed.length !== filtered.length) {
+            localStorage.setItem('course_architect_courses', JSON.stringify(filtered));
+            setCourses(filtered);
+            localStorage.removeItem('course_state_CS302_SEM1_2026');
+            localStorage.removeItem('course_state_CS101_SEM2_2026');
+          } else {
+            setCourses(parsed);
+          }
         } catch (e) {
           setCourses(DEFAULT_COURSES);
         }
