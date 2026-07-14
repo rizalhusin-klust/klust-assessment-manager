@@ -4211,6 +4211,21 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                           </a>
                         </div>
                       ))}
+
+                      <div className="border-t border-slate-900 pt-3 mt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Are you sure you want to reset the provisioned status? This will allow you to edit the email and re-provision folders.")) {
+                              setProvisionState({ provisioned: false, folderLinks: {}, isLoading: false });
+                              addLog("Cleared provisioned state. Roster is ready for re-sharing.");
+                            }
+                          }}
+                          className="py-1 px-2.5 border border-slate-800 hover:border-rose-500/30 hover:bg-rose-500/5 text-slate-400 hover:text-rose-400 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                        >
+                          Reset Provision Status / Change Email
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
