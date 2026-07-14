@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSheetsClient, spreadsheetId } from '@/lib/googleSheets';
+import { getSheetsClient, spreadsheetId, ensureSheetsExist } from '@/lib/googleSheets';
 import { provisionDriveFolders } from '@/lib/googleDrive';
 
 export async function POST(request: Request) {
@@ -9,6 +9,9 @@ export async function POST(request: Request) {
     const timestamp = new Date().toISOString();
 
     const sheets = getSheetsClient();
+    if (sheets && spreadsheetId) {
+      await ensureSheetsExist(sheets, spreadsheetId);
+    }
 
     // ==========================================
     // ACTION: SAVE_DESIGN (or legacy fallback)

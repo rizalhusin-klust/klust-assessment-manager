@@ -30,4 +30,37 @@ export function getSheetsClient() {
   }
 }
 
+/**
+ * Verifies if required tabs exist in the Google Spreadsheet, and creates them if missing.
+ */
+export async function ensureSheetsExist(sheets: any, spreadsheetId: string) {
+  try {
+    const response = await sheets.spreadsheets.get({ spreadsheetId });
+    const existingTitles = response.data.sheets?.map((s: any) => s.properties?.title) || [];
+    
+    const requiredSheets = ['Designs', 'Rubrics', 'Grades', 'Sampling'];
+    const missingSheets = requiredSheets.filter(title => !existingTitles.includes(title));
+    
+    if (missingSheets.length > 0) {
+      const requests = missingSheets.map(title => ({
+        addSheet: {
+          properties: {
+            title
+          }
+        }
+      }));
+      
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests
+        }
+      });
+      console.log(`Successfully created missing spreadsheet tabs: ${missingSheets.join(', ')}`);
+    }
+  } catch (error) {
+    console.error('Failed to verify or create missing spreadsheet tabs:', error);
+  }
+}
+
 export { spreadsheetId };
