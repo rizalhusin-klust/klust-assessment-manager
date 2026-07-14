@@ -32,7 +32,7 @@ export function getDriveClient() {
 /**
  * Creates folders dynamically in Google Drive (real API or simulation fallback)
  */
-export async function provisionDriveFolders(courseCode: string, components: string[]) {
+export async function provisionDriveFolders(courseCode: string, components: string[], shareEmail?: string) {
   const drive = getDriveClient();
   const folderLinks: Record<string, string> = {};
 
@@ -60,6 +60,22 @@ export async function provisionDriveFolders(courseCode: string, components: stri
     const parentId = parentResponse.data.id;
     const parentLink = parentResponse.data.webViewLink || '';
     folderLinks['Parent Course Folder'] = parentLink;
+
+    // Share folder with specified user email if provided
+    if (shareEmail && shareEmail.trim() && parentId) {
+      try {
+        await drive.permissions.create({
+          fileId: parentId,
+          requestBody: {
+            role: 'writer',
+            type: 'user',
+            emailAddress: shareEmail.trim()
+          }
+        });
+      } catch (shareError) {
+        console.error(`Failed to create permission for ${shareEmail}:`, shareError);
+      }
+    }
 
     // 2. Create Component Subfolders
     for (const comp of components) {

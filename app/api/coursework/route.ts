@@ -159,13 +159,13 @@ export async function POST(request: Request) {
     // ACTION: PROVISION_DRIVE
     // ==========================================
     if (action === 'PROVISION_DRIVE') {
-      const { courseCode, components } = body;
+      const { courseCode, components, shareEmail } = body;
       if (!courseCode || !components || !Array.isArray(components)) {
         return NextResponse.json({ error: 'Missing parameters for provisioning drive.' }, { status: 400 });
       }
 
       try {
-        const result = await provisionDriveFolders(courseCode, components);
+        const result = await provisionDriveFolders(courseCode, components, shareEmail);
         return NextResponse.json({
           success: true,
           message: result.simulated

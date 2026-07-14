@@ -377,6 +377,7 @@ export default function CourseworkPage() {
   const [isRosterPasteOpen, setIsRosterPasteOpen] = useState<boolean>(false);
   const [rosterPasteText, setRosterPasteText] = useState<string>('');
   const [rosterPasteStatus, setRosterPasteStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [driveShareEmail, setDriveShareEmail] = useState<string>('');
 
 
   // Common Action Feedback
@@ -450,8 +451,10 @@ export default function CourseworkPage() {
           if (state.hasEsdIntegration !== undefined) setHasEsdIntegration(state.hasEsdIntegration);
           if (state.esdTnlDetails !== undefined) setEsdTnlDetails(state.esdTnlDetails);
           if (state.esdAssessmentDetails !== undefined) setEsdAssessmentDetails(state.esdAssessmentDetails);
+          if (state.driveShareEmail !== undefined) setDriveShareEmail(state.driveShareEmail);
         } catch(e) {}
       } else {
+        setDriveShareEmail('');
         setMarkerGrades({});
         setEnableDoubleMarking(true);
         setHasCourseIntegration(false);
@@ -534,7 +537,8 @@ export default function CourseworkPage() {
         esdTnlDetails,
         esdAssessmentDetails,
         courseCoordinator,
-        clusterLeader
+        clusterLeader,
+        driveShareEmail
       };
       localStorage.setItem(`course_state_${activeCourseId}`, JSON.stringify(stateObj));
       
@@ -1510,7 +1514,8 @@ export default function CourseworkPage() {
         body: JSON.stringify({
           action: 'PROVISION_DRIVE',
           courseCode,
-          components: components.map(c => c.name)
+          components: components.map(c => c.name),
+          shareEmail: driveShareEmail
         })
       });
 
@@ -4122,40 +4127,60 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                     </p>
                   </div>
 
-                  <div className="bg-slate-950/40 border border-slate-900 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-bold text-slate-300">Target Folder Structure</span>
-                      <p className="text-[11px] text-slate-500 font-mono">
-                        Google Drive/CourseArchitect - {courseCode}/ [Midterm, Project, Quizzes]
-                      </p>
+                  <div className="bg-slate-950/40 border border-slate-900 rounded-2xl p-5 flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold text-slate-300">Target Folder Structure</span>
+                        <p className="text-[11px] text-slate-500 font-mono">
+                          Google Drive/CourseArchitect - {courseCode}/ [Midterm, Project, Quizzes]
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleProvisionDrive}
+                        disabled={provisionState.isLoading || provisionState.provisioned}
+                        className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer ${
+                          provisionState.provisioned 
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
+                        }`}
+                      >
+                        {provisionState.isLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Provisioning Folders...</span>
+                          </>
+                        ) : provisionState.provisioned ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            <span>Structure Provisioned</span>
+                          </>
+                        ) : (
+                          <>
+                            <FolderOpen className="h-4 w-4" />
+                            <span>Generate Google Drive Structure</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
-                    <button
-                      onClick={handleProvisionDrive}
-                      disabled={provisionState.isLoading || provisionState.provisioned}
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer ${
-                        provisionState.provisioned 
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
-                      }`}
-                    >
-                      {provisionState.isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Provisioning Folders...</span>
-                        </>
-                      ) : provisionState.provisioned ? (
-                        <>
-                          <Check className="h-4 w-4" />
-                          <span>Structure Provisioned</span>
-                        </>
-                      ) : (
-                        <>
-                          <FolderOpen className="h-4 w-4" />
-                          <span>Generate Google Drive Structure</span>
-                        </>
-                      )}
-                    </button>
+                    {!provisionState.provisioned && (
+                      <div className="border-t border-slate-900 pt-3 mt-1 flex flex-col gap-2 max-w-md">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Google Account Email (For Folder Access Sharing)
+                        </label>
+                        <input
+                          type="email"
+                          value={driveShareEmail}
+                          onChange={(e) => setDriveShareEmail(e.target.value)}
+                          placeholder="your.google.email@gmail.com"
+                          className="bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-0 placeholder:text-slate-700"
+                        />
+                        <span className="text-[9.5px] text-slate-600 leading-normal">
+                          The Google Service Account will automatically share editor permissions with this email when generating directories.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Provisioned Folder Links Display */}
