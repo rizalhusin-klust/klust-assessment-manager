@@ -41,6 +41,7 @@ interface AssessmentComponent {
   id: string;
   name: string;
   weight: number;
+  assessmentType?: 'qualitative' | 'quantitative';
 }
 
 interface RubricLevel {
@@ -662,6 +663,11 @@ export default function CourseworkPage() {
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  const updateComponentAssessmentType = (compId: string, type: 'qualitative' | 'quantitative') => {
+    setComponents(prev => prev.map(c => c.id === compId ? { ...c, assessmentType: type } : c));
+    addLog(`Updated component [${compId}] grading mode to: ${type.toUpperCase()}`);
   };
 
   // Assessment Brief helper
@@ -3446,6 +3452,46 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                     </div>
                   </div>
 
+                  {/* Qualitative vs Quantitative Mode Switch */}
+                  {(() => {
+                    const comp = components.find(c => c.id === activeRubricCompId);
+                    if (!comp) return null;
+                    const currentType = comp.assessmentType || 'qualitative';
+
+                    return (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950/40 border border-slate-900 rounded-xl p-3.5 gap-3.5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Grading Framework Mode</span>
+                          <span className="text-[11px] text-slate-400">Select whether this assessment component uses qualitative descriptors (rubrics) or quantitative direct numeric scoring.</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1 flex-shrink-0 self-start sm:self-center">
+                          <button
+                            type="button"
+                            onClick={() => updateComponentAssessmentType(activeRubricCompId, 'qualitative')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              currentType === 'qualitative'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            Qualitative (Rubric)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateComponentAssessmentType(activeRubricCompId, 'quantitative')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              currentType === 'quantitative'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            Quantitative (Direct Score)
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Aligned Syllabus Outcomes Info Box */}
                   {(() => {
                     const comp = components.find(c => c.id === activeRubricCompId);
@@ -3897,14 +3943,14 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                         onChange={(e) => setBulkPasteText(e.target.value)}
                         placeholder="Paste your copied spreadsheet cells here..."
                         rows={5}
-                        className="w-full bg-slate-900 border border-slate-850 rounded-lg p-2.5 font-mono text-[10.5px] leading-relaxed text-slate-350 focus:outline-none focus:border-indigo-500 resize-y"
+                        className="w-full bg-slate-900 border border-slate-850 rounded-lg p-2.5 font-mono text-[10.5px] leading-relaxed text-slate-300 focus:outline-none focus:border-indigo-500 resize-y"
                       />
                       
                       <div className="flex items-center gap-2 justify-end">
                         <button
                           type="button"
                           onClick={handleDownloadSpreadsheetTemplate}
-                          className="mr-auto px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-355 text-slate-400 hover:text-white text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors"
+                          className="mr-auto px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors"
                           title="Download a template matching Google Sheets columns format"
                         >
                           <Download className="h-3.5 w-3.5" />
@@ -3934,8 +3980,30 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                   <div className="h-px bg-slate-900"></div>
 
                   {/* Rubric Criteria items list */}
-                  <div className="flex flex-col gap-6">
-                    {(!rubrics[activeRubricCompId] || rubrics[activeRubricCompId].length === 0) ? (
+                  {(() => {
+                    const comp = components.find(c => c.id === activeRubricCompId);
+                    if (comp?.assessmentType === 'quantitative') {
+                      return (
+                        <div className="bg-slate-950/60 border border-slate-900 rounded-xl p-6 text-center flex flex-col items-center justify-center gap-3 animate-fadeIn">
+                          <div className="h-10 w-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-indigo-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-200">Quantitative Grading Mode Active</h3>
+                            <p className="text-slate-500 text-xs mt-1 max-w-md mx-auto leading-relaxed">
+                              This component is configured to use Direct numeric scoring (marks) instead of qualitative rubrics. Descriptors and 5-level criteria tables are bypassed.
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-slate-500 bg-slate-900/50 border border-slate-900 px-3 py-1 rounded-lg">
+                            💡 Change to Qualitative (Rubric) mode above if you want to use assessment rubrics.
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-col gap-6">
+                        {(!rubrics[activeRubricCompId] || rubrics[activeRubricCompId].length === 0) ? (
                       <div className="text-center py-10 border border-dashed border-slate-900 rounded-xl">
                         <p className="text-slate-600 text-xs font-semibold">No grading criteria defined for this component yet.</p>
                         <button 
@@ -4120,7 +4188,9 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                           </div>
                         </div>
                     )}
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )})()}
@@ -4676,7 +4746,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                               <span className={`text-sm font-bold ${
                                 isConflict ? 'text-rose-400 bg-rose-500/5 px-1 py-0.5 rounded' : isReconciled ? 'text-emerald-400 bg-emerald-500/5 px-1 py-0.5 rounded' : 'text-slate-400'
                               }`}>
-                                {variance !== null ? `${variance}%` : <span className="text-slate-650 italic text-[11px]">—</span>}
+                                {variance !== null ? `${variance}%` : <span className="text-slate-400 italic text-[11px]">—</span>}
                               </span>
                             </div>
                           </div>
@@ -4689,7 +4759,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                                 <span>Awaiting grading from both Marker A and Marker B to calculate consensus score.</span>
                               </div>
                             ) : isReconciled && moderated === undefined ? (
-                              <div className="text-emerald-450 flex items-start gap-2 bg-emerald-500/5 p-2.5 rounded-lg border border-emerald-500/10">
+                              <div className="text-emerald-400 flex items-start gap-2 bg-emerald-500/5 p-2.5 rounded-lg border border-emerald-500/10">
                                 <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500 flex-shrink-0 mt-0.5" />
                                 <div>
                                   <p className="font-bold">Auto-Reconciled Successfully (Variance ≤ 10%)</p>
@@ -4727,7 +4797,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                                     placeholder="Moderated Score (%)"
                                     defaultValue={moderated !== undefined ? moderated : ''}
                                     id="moderator-score-input"
-                                    className="w-full bg-slate-950 border border-slate-905 rounded-lg py-2 px-3 text-slate-200 text-xs focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-slate-200 text-xs focus:outline-none focus:border-indigo-500"
                                   />
                                   <span className="absolute right-3 text-slate-600 text-xs">%</span>
                                 </div>
@@ -4736,7 +4806,7 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                                   placeholder="Moderator remarks / notes..."
                                   defaultValue={remarks}
                                   id="moderator-remarks-input"
-                                  className="flex-[2] bg-slate-950 border border-slate-905 rounded-lg py-2 px-3 text-slate-200 text-xs focus:outline-none focus:border-indigo-500"
+                                  className="flex-[2] bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-slate-200 text-xs focus:outline-none focus:border-indigo-500"
                                 />
                                 <button
                                   type="button"
@@ -4775,96 +4845,489 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                       );
                     })()}
 
-                    {/* Criteria Scoring Grid */}
-                    {currentGradingRubric.length === 0 ? (
-                      <div className="text-center py-12">
-                        <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                        <p className="text-slate-500 text-xs font-semibold">No rubrics criteria defined for this component.</p>
-                        <p className="text-[10px] text-slate-600 mt-1">Please head to Stage 2: Rubrics to design scoring criteria.</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-6">
-                        {currentGradingRubric.map((crit) => {
-                          const mappedClos = cloList.filter(clo => (cloPloMapping[`${activeGradingCompId}_${clo.id}`] || 0) > 0);
-                          const targetLevels = mappedClos.map(clo => clo.level).filter(Boolean);
-                          const targetLevelsText = targetLevels.length > 0 ? targetLevels.join('/') : '';
+                    {/* Criteria Scoring Grid / Quantitative Marks Entry */}
+                    {(() => {
+                      const comp = components.find(c => c.id === activeGradingCompId);
+                      const isQuantitative = comp?.assessmentType === 'quantitative';
+                      if (isQuantitative) {
+                        const brief = assessmentBriefs[activeGradingCompId] || { maxPoints: 100 };
+                        const maxPoints = brief.maxPoints || 100;
 
-                          return (
-                            <div key={crit.id} className="flex flex-col gap-2">
-                              <div className="flex justify-between text-xs font-bold text-slate-300">
-                                <span>{crit.name}</span>
-                                <span className="text-slate-500">Share weight: {crit.weight}%</span>
+                        // Let's get current score for active marker
+                        const studentGrades = markerGrades[selectedStudentId] || {};
+                        const compGrading = studentGrades[activeGradingCompId] || {};
+                        const committedGrade = students.find(s => s.id === selectedStudentId)?.grades[activeGradingCompId];
+
+                        // Determine initial raw score value to show in input
+                        let currentPct = 0;
+                        if (enableDoubleMarking) {
+                          currentPct = (activeMarker === 'Marker A' ? compGrading.markerAScore : compGrading.markerBScore) || 0;
+                        } else {
+                          currentPct = committedGrade || 0;
+                        }
+                        const currentRaw = Math.round((currentPct / 100) * maxPoints * 100) / 100;
+
+                        return (
+                          <div className="bg-slate-950/40 border border-slate-900 rounded-xl p-5 flex flex-col gap-4">
+                            <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-200">Quantitative Marks Input</h4>
+                                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Enter direct score. The system scales it to percentage and weightage automatically.</p>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-indigo-400">Max Marks: {maxPoints} Marks</span>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
+                              <div className="flex-1 w-full flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Raw Score Obtained</label>
+                                <div className="relative flex items-center">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={maxPoints}
+                                    step="any"
+                                    placeholder={`0 - ${maxPoints}`}
+                                    defaultValue={currentRaw || ''}
+                                    key={`${selectedStudentId}_${activeGradingCompId}_${activeMarker}`}
+                                    id="quantitative-raw-score-input"
+                                    onChange={(e) => {
+                                      const rawVal = parseFloat(e.target.value) || 0;
+                                      const pct = Math.min(100, Math.max(0, Math.round((rawVal / maxPoints) * 100 * 100) / 100));
+                                      const pctSpan = document.getElementById('quant-percentage-display');
+                                      if (pctSpan) pctSpan.innerText = `${pct}%`;
+                                    }}
+                                    className="w-full bg-slate-950 border border-slate-850 rounded-lg py-2.5 px-3.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-0 placeholder:text-slate-700"
+                                  />
+                                  <span className="absolute right-3.5 text-slate-500 text-xs font-mono">/ {maxPoints}</span>
+                                </div>
                               </div>
 
-                              {/* Options cards (5-column layout) */}
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                                {crit.levels.map((level) => {
-                                  const isSelected = crit.selectedLevel === level.score;
-                                  return (
-                                    <button
-                                      key={level.score}
-                                      onClick={() => handleGradingLevelClick(crit.id, level.score)}
-                                      title={level.desc}
-                                      className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
-                                        isSelected
-                                          ? 'bg-gradient-to-tr from-indigo-950 to-indigo-900 border-indigo-500 text-white shadow-md'
-                                          : level.score === 3
-                                            ? 'bg-indigo-950/15 border-indigo-500/30 text-slate-300 hover:border-indigo-500/40 hover:bg-indigo-950/20'
-                                            : 'bg-slate-950/40 border-slate-900/60 text-slate-400 hover:border-slate-800 hover:bg-slate-900/20'
-                                      }`}
-                                    >
-                                      <div className="flex justify-between items-center text-[10px] font-mono border-b border-slate-900/40 pb-1 w-full font-bold">
-                                        <span className="flex items-center gap-1">
-                                          L{level.score}
-                                          {level.score === 3 && targetLevelsText && (
-                                            <span className="text-[7.5px] font-bold text-emerald-400 uppercase font-sans tracking-tight">[{targetLevelsText}]</span>
-                                          )}
-                                        </span>
-                                        <span className={isSelected ? 'text-indigo-400' : 'text-slate-650'}>
-                                          {level.label}
-                                        </span>
-                                      </div>
-                                      <p className="text-[9px] leading-relaxed text-slate-500 mt-1">
-                                        {level.desc}
-                                      </p>
-                                    </button>
-                                  );
-                                })}
+                              <div className="w-full sm:w-28 flex flex-col items-center justify-center p-3.5 bg-slate-950 border border-slate-850 rounded-xl flex-shrink-0">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase">Percentage</span>
+                                <span id="quant-percentage-display" className="text-lg font-mono font-bold text-emerald-400 mt-1">
+                                  {currentPct}%
+                                </span>
                               </div>
                             </div>
-                          );
-                        })}
 
-                        <div className="h-px bg-slate-900 mt-2"></div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById('quantitative-raw-score-input') as HTMLInputElement;
+                                const rawVal = parseFloat(input?.value);
+                                if (isNaN(rawVal) || rawVal < 0 || rawVal > maxPoints) {
+                                  alert(`Please enter a valid raw score between 0 and ${maxPoints}.`);
+                                  return;
+                                }
 
-                        {/* Grading desk actions */}
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={handleSaveStudentGrade}
-                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                          >
-                            <Save className="h-4 w-4" />
-                            <span>
-                              {enableDoubleMarking 
-                                ? `Record ${activeMarker} Score` 
-                                : 'Commit Student Mark'}
-                            </span>
-                          </button>
-                          
-                          <button
-                            onClick={handleSyncGradesToSheets}
-                            className="px-4 py-3 border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2"
-                          >
-                            <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
-                            <span>Sync to Sheets</span>
-                          </button>
+                                const pctScore = Math.round((rawVal / maxPoints) * 100 * 100) / 100;
+
+                                if (!enableDoubleMarking) {
+                                  commitFinalComponentGrade(selectedStudentId, activeGradingCompId, pctScore);
+                                  addLog(`Graded Student ${selectedStudentId} [${activeGradingCompId}]: Direct raw score ${rawVal}/${maxPoints} (${pctScore}%)`);
+                                } else {
+                                  const currentStudentGrades = markerGrades[selectedStudentId] || {};
+                                  const compGrading = currentStudentGrades[activeGradingCompId] || {};
+                                  const newCompGrading = { ...compGrading };
+
+                                  if (activeMarker === 'Marker A') {
+                                    newCompGrading.markerAScore = pctScore;
+                                  } else {
+                                    newCompGrading.markerBScore = pctScore;
+                                  }
+
+                                  let autoFinalScore: number | undefined = undefined;
+                                  const markerA = newCompGrading.markerAScore;
+                                  const markerB = newCompGrading.markerBScore;
+
+                                  if (markerA !== undefined && markerB !== undefined) {
+                                    const variance = Math.abs(markerA - markerB);
+                                    if (variance <= 10) {
+                                      autoFinalScore = Math.round(((markerA + markerB) / 2) * 100) / 100;
+                                    }
+                                  }
+
+                                  const newMarkerGrades = {
+                                    ...markerGrades,
+                                    [selectedStudentId]: {
+                                      ...currentStudentGrades,
+                                      [activeGradingCompId]: newCompGrading
+                                    }
+                                  };
+                                  setMarkerGrades(newMarkerGrades);
+
+                                  if (autoFinalScore !== undefined) {
+                                    commitFinalComponentGrade(selectedStudentId, activeGradingCompId, autoFinalScore);
+                                    addLog(`Double Grading updated for ${selectedStudentId} [${activeGradingCompId}]: Marker A: ${markerA}%, Marker B: ${markerB}%. Auto-Reconciled to: ${autoFinalScore}%`);
+                                  } else if (markerA !== undefined && markerB !== undefined) {
+                                    addLog(`Conflict recorded for ${selectedStudentId} [${activeGradingCompId}]: Marker A: ${markerA}%, Marker B: ${markerB}%. Variance exceeds 10% threshold. Moderator review required.`);
+                                  } else {
+                                    addLog(`Saved ${activeMarker} score (${pctScore}%) for student ${selectedStudentId} [${activeGradingCompId}].`);
+                                  }
+                                }
+                                setSaveStatus({ success: true, message: 'Grade saved successfully!' });
+                                setTimeout(() => setSaveStatus(null), 3000);
+                              }}
+                              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+                            >
+                              <Save className="h-4 w-4" />
+                              <span>Save Quantitative Grade</span>
+                            </button>
+
+                            {saveStatus?.success && (
+                              <div className="text-center text-[10px] text-emerald-400 font-bold animate-pulse">
+                                ✓ Grade saved successfully!
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // Else show original Rubric scoring
+                      if (currentGradingRubric.length === 0) {
+                        return (
+                          <div className="text-center py-12">
+                            <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                            <p className="text-slate-500 text-xs font-semibold">No rubrics criteria defined for this component.</p>
+                            <p className="text-[10px] text-slate-500 mt-1">Please head to Stage 2: Rubrics to design scoring criteria.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-col gap-6">
+                          {currentGradingRubric.map((crit) => {
+                            const mappedClos = cloList.filter(clo => (cloPloMapping[`${activeGradingCompId}_${clo.id}`] || 0) > 0);
+                            const targetLevels = mappedClos.map(clo => clo.level).filter(Boolean);
+                            const targetLevelsText = targetLevels.length > 0 ? targetLevels.join('/') : '';
+
+                            return (
+                              <div key={crit.id} className="flex flex-col gap-2">
+                                <div className="flex justify-between text-xs font-bold text-slate-300">
+                                  <span>{crit.name}</span>
+                                  <span className="text-slate-500">Share weight: {crit.weight}%</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                  {crit.levels.map((level) => {
+                                    const isSelected = crit.selectedLevel === level.score;
+                                    return (
+                                      <button
+                                        key={level.score}
+                                        type="button"
+                                        onClick={() => handleGradingLevelClick(crit.id, level.score)}
+                                        title={level.desc}
+                                        className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 cursor-pointer transition-all ${
+                                          isSelected
+                                            ? 'bg-gradient-to-tr from-indigo-950 to-indigo-900 border-indigo-500 text-white shadow-md'
+                                            : level.score === 3
+                                              ? 'bg-indigo-950/15 border-indigo-500/30 text-slate-300 hover:border-indigo-500/40 hover:bg-indigo-950/20'
+                                              : 'bg-slate-950/40 border-slate-900/60 text-slate-400 hover:border-slate-800 hover:bg-slate-900/20'
+                                        }`}
+                                      >
+                                        <div className="flex justify-between items-center text-[10px] font-mono border-b border-slate-900/40 pb-1 w-full font-bold">
+                                          <span className="flex items-center gap-1">
+                                            L{level.score}
+                                            {level.score === 3 && targetLevelsText && (
+                                              <span className="text-[7.5px] font-bold text-emerald-400 uppercase font-sans tracking-tight">[{targetLevelsText}]</span>
+                                            )}
+                                          </span>
+                                          <span className={isSelected ? 'text-indigo-400' : 'text-slate-500'}>
+                                            {level.label}
+                                          </span>
+                                        </div>
+                                        <p className="text-[9px] leading-relaxed text-slate-500 mt-1">
+                                          {level.desc}
+                                        </p>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          <div className="h-px bg-slate-900 mt-2"></div>
+
+                          {/* Grading desk actions */}
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={handleSaveStudentGrade}
+                              className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 border-0"
+                            >
+                              <Save className="h-4 w-4" />
+                              <span>
+                                {enableDoubleMarking 
+                                  ? `Record ${activeMarker} Score` 
+                                  : 'Commit Student Mark'}
+                              </span>
+                            </button>
+                            
+                            <button
+                              onClick={handleSyncGradesToSheets}
+                              className="px-4 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all cursor-pointer flex items-center gap-2 border-0"
+                            >
+                              <FileSpreadsheet className="h-4 w-4" />
+                              <span>Sync to Sheets</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
-              </div>
-            )}
+
+                {/* Overall Coursework Marking Progress Table */}
+                  <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 flex flex-col gap-6 print:break-before-page">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                          <FileSpreadsheet className="h-5 w-5 text-emerald-400" />
+                          <span>Overall Coursework Marking Progress</span>
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1">Consolidated marksheet ledger showing scores for all components and computed final coursework marks.</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleSyncGradesToSheets}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5 border-0"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" />
+                          <span>Export Marksheet to Google Sheets</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const printWindow = window.open('', '_blank');
+                            if (printWindow) {
+                              const html = `
+                                <html>
+                                  <head>
+                                    <title>Overall Coursework Marking Progress - ${courseCode}</title>
+                                    <style>
+                                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; }
+                                      h1 { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+                                      p { font-size: 12px; color: #64748b; margin-top: 0; margin-bottom: 20px; }
+                                      table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 11px; }
+                                      th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+                                      th { background-color: #f8fafc; font-weight: bold; }
+                                      .badge { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }
+                                      .graded { background-color: #dcfce7; color: #15803d; }
+                                      .pending { background-color: #fef3c7; color: #b45309; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <h1>Overall Coursework Marking Progress</h1>
+                                    <p>Course Code: ${courseCode} | Semester: ${semester || 'Semester 1'} | Date Generated: ${new Date().toLocaleDateString()}</p>
+                                    <table>
+                                      <thead>
+                                        <tr>
+                                          <th>Student ID</th>
+                                          <th>Student Name</th>
+                                          ${components.map(c => `<th>${c.name} (${c.weight}%)</th>`).join('')}
+                                          <th>Final Coursework Mark (100%)</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        ${students.map(s => `
+                                          <tr>
+                                            <td>${s.id}</td>
+                                            <td>${s.name}</td>
+                                            ${components.map(c => {
+                                              const val = s.grades[c.id];
+                                              return `<td>${val !== undefined ? `${val}%` : '—'}</td>`;
+                                            }).join('')}
+                                            <td><strong>${s.finalMark !== undefined ? `${s.finalMark}%` : '—'}</strong></td>
+                                            <td><span class="badge ${s.status === 'Graded' ? 'graded' : 'pending'}">${s.status}</span></td>
+                                          </tr>
+                                        `).join('')}
+                                      </tbody>
+                                    </table>
+                                  </body>
+                                </html>
+                              `;
+                              printWindow.document.write(html);
+                              printWindow.document.close();
+                              printWindow.print();
+                            }
+                          }}
+                          className="px-4 py-2 border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Printer className="h-4 w-4" />
+                          <span>Print Marksheet</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Spreadsheet Paste / Importer Box */}
+                    <div className="bg-slate-950/40 border border-slate-900 rounded-xl p-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-300">Spreadsheet Batch Importer (Optional)</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const template = `Student ID\tScore\nS101\t85\nS102\t90\nS103\t75`;
+                            navigator.clipboard.writeText(template);
+                            alert("Example spreadsheet template copied to clipboard! Paste it into Excel or Google Sheets to prepare your marks.");
+                          }}
+                          className="text-[10px] text-indigo-400 hover:underline font-bold bg-transparent border-0 cursor-pointer"
+                        >
+                          Copy Excel Template Example
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                        Copy grades from Excel or Google Sheets (Column A: <strong>Student ID</strong>, Column B: <strong>Score</strong>) and paste them here to update grades for the active component in bulk.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <textarea
+                          id="spreadsheet-paste-importer"
+                          placeholder="Paste spreadsheet columns here... (e.g. S101 [Tab] 85)"
+                          rows={3}
+                          className="w-full bg-slate-950 border border-slate-850 rounded-lg p-2.5 text-slate-300 text-xs font-mono focus:outline-none focus:border-indigo-500 focus:ring-0 resize-none placeholder:text-slate-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const txt = (document.getElementById('spreadsheet-paste-importer') as HTMLInputElement)?.value;
+                            if (!txt || !txt.trim()) {
+                              alert("Please paste some columns data first!");
+                              return;
+                            }
+                            const activeComp = components.find(c => c.id === activeGradingCompId);
+                            if (!activeComp) return;
+                            const brief = assessmentBriefs[activeGradingCompId] || { maxPoints: 100 };
+                            const maxPoints = brief.maxPoints || 100;
+
+                            const lines = txt.split('\n');
+                            let updatedStudents = [...students];
+                            let count = 0;
+
+                            lines.forEach(line => {
+                              const parts = line.split('\t');
+                              if (parts.length >= 2) {
+                                const sId = parts[0]?.trim();
+                                const scoreVal = parseFloat(parts[1]?.trim());
+                                if (sId && !isNaN(scoreVal)) {
+                                  // Raw score to percentage
+                                  const scorePct = activeComp.assessmentType === 'quantitative'
+                                    ? Math.min(100, Math.max(0, Math.round((scoreVal / maxPoints) * 100 * 100) / 100))
+                                    : scoreVal;
+
+                                  updatedStudents = updatedStudents.map(s => {
+                                    if (s.id.toLowerCase() === sId.toLowerCase() || s.name.toLowerCase() === sId.toLowerCase()) {
+                                      count++;
+                                      const newGrades = { ...s.grades, [activeGradingCompId]: scorePct };
+                                      
+                                      let finalWeighted = 0;
+                                      let activeWeightsSum = 0;
+                                      components.forEach(comp => {
+                                        const compGrade = newGrades[comp.id];
+                                        if (compGrade !== undefined) {
+                                          finalWeighted += (compGrade / 100) * comp.weight;
+                                          activeWeightsSum += comp.weight;
+                                        }
+                                      });
+                                      const finalMark = activeWeightsSum > 0 ? Math.round((finalWeighted * (100 / activeWeightsSum)) * 100) / 100 : 0;
+
+                                      return {
+                                        ...s,
+                                        grades: newGrades,
+                                        status: Object.keys(newGrades).length === components.length ? 'Graded' : 'Pending',
+                                        finalMark
+                                      };
+                                    }
+                                    return s;
+                                  });
+                                }
+                              }
+                            });
+
+                            if (count > 0) {
+                              setStudents(updatedStudents);
+                              addLog(`SUCCESS: Imported ${count} student grades for component [${activeComp.name}] from spreadsheet paste.`);
+                              (document.getElementById('spreadsheet-paste-importer') as HTMLInputElement).value = '';
+                              alert(`Imported ${count} student grades successfully!`);
+                            } else {
+                              alert("Could not parse any matching Student ID or scores. Make sure you copy both Student ID and Score columns from your spreadsheet.");
+                            }
+                          }}
+                          className="py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all border-0 self-end px-5"
+                        >
+                          Import and Update Grades
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Marksheet grid table view */}
+                    <div className="overflow-x-auto border border-slate-900 rounded-xl">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-950 border-b border-slate-900 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                            <th className="py-3 px-4">Student ID</th>
+                            <th className="py-3 px-4">Student Name</th>
+                            {components.map(c => (
+                              <th key={c.id} className="py-3 px-4">
+                                {c.name} ({c.weight}%)
+                              </th>
+                            ))}
+                            <th className="py-3 px-4">Weighted Coursework Mark (100%)</th>
+                            <th className="py-3 px-4">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-900">
+                          {students.map((stud) => {
+                            const isGraded = stud.status === 'Graded';
+                            return (
+                              <tr key={stud.id} className="hover:bg-slate-900/10 transition-colors">
+                                <td className="py-3.5 px-4 font-mono font-bold text-slate-300">{stud.id}</td>
+                                <td className="py-3.5 px-4 text-slate-200">{stud.name}</td>
+                                {components.map(c => {
+                                  const gradePct = stud.grades[c.id];
+                                  const isCompQuant = c.assessmentType === 'quantitative';
+                                  const brief = assessmentBriefs[c.id] || { maxPoints: 100 };
+                                  const maxPoints = brief.maxPoints || 100;
+                                  const rawVal = gradePct !== undefined ? Math.round((gradePct / 100) * maxPoints * 100) / 100 : null;
+
+                                  return (
+                                    <td key={c.id} className="py-3.5 px-4 text-slate-300">
+                                      {gradePct !== undefined ? (
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className="font-bold">{gradePct}%</span>
+                                          {isCompQuant && rawVal !== null && (
+                                            <span className="text-[10px] text-slate-500 font-mono">({rawVal}/{maxPoints} marks)</span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-500 italic">Pending</span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                                <td className="py-3.5 px-4">
+                                  <span className="font-mono font-bold text-sm text-indigo-400">
+                                    {stud.finalMark !== undefined ? `${stud.finalMark}%` : '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase border ${
+                                    isGraded
+                                      ? 'bg-emerald-500/10 text-emerald-405 border-emerald-500/15'
+                                      : 'bg-amber-500/10 text-amber-405 border-amber-500/15 animate-pulse'
+                                  }`}>
+                                    {stud.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             {/* STAGE 5: Quality Sampling & Moderator Pack */}
             {activeStage === 'sampling' && (
@@ -5282,37 +5745,39 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                     </div>
                   )}
 
-                  <div className="mt-4 break-inside-avoid">
-                    <h5 className="text-xs font-bold uppercase mb-2">Qualitative Assessment Rubric</h5>
-                    {compRubrics.length === 0 ? (
-                      <p className="text-[11px] text-slate-500">No rubric criteria configured for this component.</p>
-                    ) : (
-                      <table className="w-full text-left text-[9px] border border-slate-400 border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100 border-b border-slate-400">
-                            <th className="p-2 border-r border-slate-400 w-24">Criteria (Weight)</th>
-                            <th className="p-2 border-r border-slate-400">L1</th>
-                            <th className="p-2 border-r border-slate-400">L2</th>
-                            <th className="p-2 border-r border-slate-400 bg-indigo-50 font-bold">L3 (Target Expected)</th>
-                            <th className="p-2 border-r border-slate-400">L4</th>
-                            <th className="p-2">L5 (Master)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {compRubrics.map((crit) => (
-                            <tr key={crit.id} className="border-b border-slate-400">
-                              <td className="p-2 border-r border-slate-400 font-bold">{crit.name} ({crit.weight}%)</td>
-                              {crit.levels.map((lvl) => (
-                                <td key={lvl.score} className={`p-2 border-r border-slate-400 leading-normal ${lvl.score === 3 ? 'bg-indigo-50/45 font-semibold' : ''}`}>
-                                  {lvl.desc}
-                                </td>
-                              ))}
+                  {comp.assessmentType !== 'quantitative' && (
+                    <div className="mt-4 break-inside-avoid">
+                      <h5 className="text-xs font-bold uppercase mb-2">Qualitative Assessment Rubric</h5>
+                      {compRubrics.length === 0 ? (
+                        <p className="text-[11px] text-slate-500">No rubric criteria configured for this component.</p>
+                      ) : (
+                        <table className="w-full text-left text-[9px] border border-slate-400 border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100 border-b border-slate-400">
+                              <th className="p-2 border-r border-slate-400 w-24">Criteria (Weight)</th>
+                              <th className="p-2 border-r border-slate-400">L1</th>
+                              <th className="p-2 border-r border-slate-400">L2</th>
+                              <th className="p-2 border-r border-slate-400 bg-indigo-50 font-bold">L3 (Target Expected)</th>
+                              <th className="p-2 border-r border-slate-400">L4</th>
+                              <th className="p-2">L5 (Master)</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
+                          </thead>
+                          <tbody>
+                            {compRubrics.map((crit) => (
+                              <tr key={crit.id} className="border-b border-slate-400">
+                                <td className="p-2 border-r border-slate-400 font-bold">{crit.name} ({crit.weight}%)</td>
+                                {crit.levels.map((lvl) => (
+                                  <td key={lvl.score} className={`p-2 border-r border-slate-400 leading-normal ${lvl.score === 3 ? 'bg-indigo-50/45 font-semibold' : ''}`}>
+                                    {lvl.desc}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -5360,27 +5825,40 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                   <h4 className="text-sm font-bold uppercase text-indigo-900">{comp.name} Summary ({comp.weight}% Weightage)</h4>
                   
                   {/* Rubric descriptor summary table */}
-                  <div className="mt-2">
-                    <h5 className="text-[11px] font-bold uppercase text-slate-700 mb-1.5">Criteria & Mapped Target Weights</h5>
-                    <table className="w-full text-left text-[10px] border border-slate-300 border-collapse mb-4">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-300">
-                          <th className="p-2 border-r border-slate-300">Criteria Name</th>
-                          <th className="p-2 border-r border-slate-300 text-center">Weight (%)</th>
-                          <th className="p-2">Expected Target (L3)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {compRubrics.map((crit) => (
-                          <tr key={crit.id} className="border-b border-slate-300">
-                            <td className="p-2 border-r border-slate-300 font-semibold">{crit.name}</td>
-                            <td className="p-2 border-r border-slate-300 text-center">{crit.weight}%</td>
-                            <td className="p-2 text-slate-600 truncate max-w-xs">{crit.levels.find(l => l.score === 3)?.desc}</td>
+                  {comp.assessmentType !== 'quantitative' ? (
+                    <div className="mt-2">
+                      <h5 className="text-[11px] font-bold uppercase text-slate-700 mb-1.5">Criteria & Mapped Target Weights</h5>
+                      <table className="w-full text-left text-[10px] border border-slate-300 border-collapse mb-4">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-300">
+                            <th className="p-2 border-r border-slate-300">Criteria Name</th>
+                            <th className="p-2 border-r border-slate-300 text-center">Weight (%)</th>
+                            <th className="p-2">Expected Target (L3)</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {compRubrics.map((crit) => (
+                            <tr key={crit.id} className="border-b border-slate-300">
+                              <td className="p-2 border-r border-slate-300 font-semibold">{crit.name}</td>
+                              <td className="p-2 border-r border-slate-300 text-center">{crit.weight}%</td>
+                              <td className="p-2 text-slate-500 truncate max-w-xs">{crit.levels.find(l => l.score === 3)?.desc}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="mt-2 border border-slate-200 rounded p-3 bg-slate-50/50 mb-4">
+                      <div className="text-[11px] font-bold uppercase text-slate-700 border-b border-slate-200 pb-1 mb-2">
+                        Quantitative Grading Parameters
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-[10px]">
+                        <div><strong>Framework Mode:</strong> Direct Numeric Marks Scoring</div>
+                        <div><strong>Maximum Marks:</strong> {assessmentBriefs[comp.id]?.maxPoints || 100} Marks</div>
+                        <div><strong>Component Syllabus Weight:</strong> {comp.weight}%</div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Student Grades table */}
                   <div className="mt-2">
