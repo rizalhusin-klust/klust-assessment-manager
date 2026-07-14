@@ -66,6 +66,7 @@ export default function Home() {
   ]);
   const [isAddingSemester, setIsAddingSemester] = useState(false);
   const [customSemesterName, setCustomSemesterName] = useState('');
+  const [lecturerEmail, setLecturerEmail] = useState('rizal.husin.my@gmail.com');
 
   // Load courses and semesters on mount
   useEffect(() => {
@@ -108,8 +109,10 @@ export default function Home() {
       // Load lecturer profile
       const storedName = localStorage.getItem('lecturer_profile_name');
       const storedStaff = localStorage.getItem('lecturer_profile_staff_no');
+      const storedEmail = localStorage.getItem('lecturer_profile_email');
       if (storedName) setLecturerName(storedName);
       if (storedStaff) setLecturerStaffNo(storedStaff);
+      if (storedEmail) setLecturerEmail(storedEmail);
 
       setIsLoading(false);
     }
@@ -356,7 +359,7 @@ export default function Home() {
             <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <UserCheck className="h-5 w-5" />
             </div>
-            {isEditingProfile ? (
+             {isEditingProfile ? (
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex flex-col gap-1">
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lecturer Name</span>
@@ -378,12 +381,30 @@ export default function Home() {
                     placeholder="e.g. STF90811"
                   />
                 </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lecturer Email (Drive Sharing)</span>
+                  <input
+                    type="email"
+                    value={lecturerEmail}
+                    onChange={(e) => setLecturerEmail(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. rizal.husin@klust.edu.my"
+                  />
+                </div>
               </div>
             ) : (
               <div>
                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Active Lecturer Profile</span>
                 <h4 className="text-sm font-bold text-white mt-0.5">
-                  {lecturerName || 'Not Set'} <span className="text-slate-500 font-normal ml-1">({lecturerStaffNo || 'Staff No: Not Set'})</span>
+                  {lecturerName || 'Not Set'}{' '}
+                  <span className="text-slate-550 font-normal text-xs ml-1">
+                    ({lecturerStaffNo || 'Staff No: Not Set'})
+                  </span>
+                  {lecturerEmail && (
+                    <span className="text-xs text-slate-400 font-normal ml-2 hover:text-indigo-400 transition-colors">
+                      • {lecturerEmail}
+                    </span>
+                  )}
                 </h4>
               </div>
             )}
@@ -395,6 +416,7 @@ export default function Home() {
                 // Save to localStorage
                 localStorage.setItem('lecturer_profile_name', lecturerName);
                 localStorage.setItem('lecturer_profile_staff_no', lecturerStaffNo);
+                localStorage.setItem('lecturer_profile_email', lecturerEmail);
                 setIsEditingProfile(false);
               } else {
                 setIsEditingProfile(true);

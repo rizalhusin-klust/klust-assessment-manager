@@ -499,6 +499,11 @@ export default function CourseworkPage() {
         setAssessmentBriefs(DEFAULT_BRIEFS);
       }
       setIsInitialized(true);
+
+      const globalLecturerEmail = localStorage.getItem('lecturer_profile_email');
+      if (globalLecturerEmail) {
+        setDriveShareEmail(globalLecturerEmail);
+      }
       
       // Update sidebar grader target student index
       if (courseProfile && courseProfile.id === 'CS302_SEM1_2026') {
@@ -4179,7 +4184,10 @@ Criteria B\t30\tL1 desc...\tL2 desc...\tL3 desc...\tL4 desc...\tL5 desc...`;
                         <input
                           type="email"
                           value={driveShareEmail}
-                          onChange={(e) => setDriveShareEmail(e.target.value)}
+                          onChange={(e) => {
+                            setDriveShareEmail(e.target.value);
+                            localStorage.setItem('lecturer_profile_email', e.target.value);
+                          }}
                           placeholder="your.google.email@gmail.com"
                           className="bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-0 placeholder:text-slate-700"
                         />
